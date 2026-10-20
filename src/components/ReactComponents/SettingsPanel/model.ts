@@ -38,6 +38,7 @@ export type SectionId =
   | "playback"
   | "interface"
   | "appearance"
+  | "christmas"
   | "experiments"
   | "advanced"
   | "about";

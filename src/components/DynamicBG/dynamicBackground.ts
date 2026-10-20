@@ -748,7 +748,8 @@ const pruneAudioAnalysisCache = (activeTrackUri: string) => {
   }
 };
 
-const getAudioAnalysisForTrack = async (uri: string): Promise<AudioAnalysisData | null> => {
+/** One request per track, shared by the background speed and the Christmas snow. */
+export const getAudioAnalysisForTrack = async (uri: string): Promise<AudioAnalysisData | null> => {
   if (audioAnalysisCache.has(uri)) {
     return audioAnalysisCache.get(uri)!;
   }

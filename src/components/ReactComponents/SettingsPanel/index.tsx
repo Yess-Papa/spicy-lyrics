@@ -20,6 +20,7 @@ import {
   searchTerms,
 } from "./model.ts";
 import { playbackSection } from "./PlaybackSection.tsx";
+import { christmasSection } from "../../DynamicBG/Seasonal/ChristmasSnowSettings.tsx";
 
 const aboutSection: SectionDef = {
   id: "about",
@@ -34,6 +35,7 @@ const SECTIONS: SectionDef[] = [
   playbackSection,
   interfaceSection,
   appearanceSection,
+  christmasSection,
   experimentsSection,
   advancedSection,
   aboutSection,
