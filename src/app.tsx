@@ -7,6 +7,7 @@ import "./css/Simplebar.css";
 import "./css/ContentBox.css";
 import "./css/DynamicBG/spicy-dynamic-bg.css";
 import "./css/DynamicBG/ChristmasSnow.css";
+import "./css/DynamicBG/ChristmasPage.css";
 import "./css/Lyrics/main.css";
 import "./css/Lyrics/Mixed.css";
 import "./css/Loaders/LoaderContainer.css";
@@ -23,6 +24,7 @@ import { isExperimentEnabled } from "./utils/experiments.ts";
 import "./components/DynamicBG/CanvasImmersive.ts";
 import "./components/DynamicBG/NpvCanvasBackground.ts";
 import "./components/DynamicBG/Seasonal/ChristmasSnow.ts";
+import "./components/DynamicBG/Seasonal/ChristmasPage.ts";
 import {
   $currentLyricsData,
   $showNpvDynamicBg,

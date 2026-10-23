@@ -11,7 +11,11 @@ export const $snowAmount = persistAtom<number>("christmasSnowAmount", 100);
 export const $snowFrost = persistAtom<boolean>("christmasSnowFrost", true);
 export const $snowReactsToMusic = persistAtom<boolean>("christmasSnowReactsToMusic", true);
 
-export type SnowWhen = "christmas" | "all" | "none";
+/** Snow over any background style, and despite reduced motion. */
+export const $snowAlways = persistAtom<boolean>("christmasSnowAlways", false);
+export const $frostedLyrics = persistAtom<boolean>("christmasFrostedLyrics", true);
+
+export type SnowWhen ="christmas" | "all" | "none";
 const SNOW_WHEN: readonly SnowWhen[] = ["christmas", "all", "none"];
 export const $snowWhen = persistAtom<SnowWhen>("christmasSnowWhen", "christmas");
 
@@ -93,6 +97,32 @@ const group: GroupDef = {
         <Toggle label={label} checked={useStore($snowFrost)} onChange={(v) => $snowFrost.set(v)} disabled={disabled} />
       ),
     },
+    {
+      id: "christmasSnowAlways",
+      label: "Always Show Snow",
+      description:
+        "Snow on the lyrics page whatever the background style, even when your system asks for reduced motion. Off, it only falls over the Animated background and stops for reduced motion.",
+      keywords: "christmas snow always background static reduced motion accessibility",
+      useDisabled: useSnowOff,
+      Control: ({ disabled, label }) => (
+        <Toggle label={label} checked={useStore($snowAlways)} onChange={(v) => $snowAlways.set(v)} disabled={disabled} />
+      ),
+    },
+  ],
+};
+
+const lyricsGroup: GroupDef = {
+  title: "Lyrics",
+  settings: [
+    {
+      id: "christmasFrostedLyrics",
+      label: "Frosted Lyrics",
+      description: "On Christmas songs, the glow on the words being sung turns icy. Off, it stays white.",
+      keywords: "christmas frost lyrics glow ice line",
+      Control: ({ label }) => (
+        <Toggle label={label} checked={useStore($frostedLyrics)} onChange={(v) => $frostedLyrics.set(v)} />
+      ),
+    },
   ],
 };
 
@@ -119,5 +149,5 @@ export const christmasSection: SectionDef = {
   title: "Christmas",
   icon: ChristmasIcon,
   intro: "Seasonal extras for Christmas songs, here until the new year.",
-  groups: () => [group],
+  groups: () => [group, lyricsGroup],
 };

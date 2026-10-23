@@ -1,0 +1,13 @@
+/* Christmas songs on the lyrics page; the class is set in ChristmasPage.ts. */
+
+/* The glow that follows the words being sung turns icy: a cool core plus a wider,
+   fainter halo. Both scale with the per-word opacity the animator sets, so the frost
+   rises and fades with the singing exactly as the white glow does. */
+#SpicyLyricsPage.SpicyRenderer.ChristmasFrostedLyrics .LyricsContainer .LyricsContent .line.Active,
+#SpicyLyricsPage.SpicyRenderer.ChristmasFrostedLyrics .LyricsContainer .LyricsContent .line.Active .word,
+#SpicyLyricsPage.SpicyRenderer.ChristmasFrostedLyrics .LyricsContainer .LyricsContent .line.Active .letter,
+#SpicyLyricsPage.SpicyRenderer.ChristmasFrostedLyrics .LyricsContainer .LyricsContent .line.Active .letterGroup {
+  text-shadow:
+    0 0 var(--text-shadow-blur-radius) rgba(215, 235, 255, var(--text-shadow-opacity)),
+    0 0 calc(var(--text-shadow-blur-radius) * 2.5) rgba(140, 195, 255, calc(var(--text-shadow-opacity) * 0.7));
+}

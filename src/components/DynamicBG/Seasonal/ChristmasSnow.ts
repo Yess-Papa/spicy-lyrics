@@ -7,7 +7,14 @@ import { $backgroundStyle, $showNpvDynamicBg } from "../../../utils/stores.ts";
 import type { AudioAnalysisData, TimeInterval } from "../BackgroundAnimationController.ts";
 import { getAudioAnalysisForTrack, getBackgroundStyle } from "../dynamicBackground.ts";
 import ChristmasTrackIds from "./ChristmasTrackIds.ts";
-import { $snowAmount, $snowFrost, $snowReactsToMusic, $snowWhen, getSnowWhen } from "./ChristmasSnowSettings.tsx";
+import {
+  $snowAlways,
+  $snowAmount,
+  $snowFrost,
+  $snowReactsToMusic,
+  $snowWhen,
+  getSnowWhen,
+} from "./ChristmasSnowSettings.tsx";
 
 /**
  * Christmas songs get falling snow and frosted edges, drawn between the background
@@ -71,13 +78,16 @@ type Flake = {
 };
 
 // Flakes per 1920×1080 of host area at 100% Snow Amount; scaled to the real size and clamped.
-const FLAKES_PER_FULL_HD = 110;
-const MIN_FLAKES = 30;
-const MAX_FLAKES = 180;
+const FLAKES_PER_FULL_HD = 160;
+const MIN_FLAKES = 40;
+const MAX_FLAKES = 260;
 // Longer than one frame at the lowest FPS cap, so a stall doesn't teleport flakes.
 const MAX_FRAME_DELTA_S = 0.1;
 // Matches the CSS opacity transition on .SpicySnow.
 const FADE_OUT_MS = 1200;
+// Redrawing the frost is the costliest thing the snow does, so while a window is being
+// resized it just stretches, and is redrawn once the size has held this long.
+const FROST_REDRAW_DELAY_MS = 200;
 // The dimmed lyric lines are translucent, so a flake behind one shows through its
 // letters. The snow fades out across the text; that region is re-measured this often,
 // since lyrics load after the song changes and lines reflow with the layout.
@@ -222,8 +232,8 @@ function drawFrost(frost: HTMLCanvasElement, width: number, height: number) {
     c.fillRect(0, 0, width, height);
   }
   for (const [cx, cy] of [[0, 0], [width, 0], [0, height], [width, height]]) {
-    const g = c.createRadialGradient(cx, cy, 0, cx, cy, reach * 1.3);
-    g.addColorStop(0, "rgba(235, 244, 255, 0.26)");
+    const g = c.createRadialGradient(cx, cy, 0, cx, cy, reach);
+    g.addColorStop(0, "rgba(235, 244, 255, 0.12)");
     g.addColorStop(1, "rgba(235, 244, 255, 0)");
     c.fillStyle = g;
     c.fillRect(0, 0, width, height);
@@ -282,6 +292,18 @@ function drawFrost(frost: HTMLCanvasElement, width: number, height: number) {
     c.fillRect(x - r / 2, y - r / 2, r, r);
   }
   c.globalAlpha = 1;
+
+  // Fade everything out toward the middle with one soft, rounded falloff, so the
+  // crystals and rime thin away instead of stopping at a ragged line.
+  const inset = reach * 0.5;
+  c.globalCompositeOperation = "destination-out";
+  c.filter = `blur(${reach * 0.3 * dpr}px)`;
+  c.fillStyle = "#000";
+  c.beginPath();
+  c.roundRect(inset, inset, width - inset * 2, height - inset * 2, reach * 0.8);
+  c.fill();
+  c.filter = "none";
+  c.globalCompositeOperation = "source-over";
 }
 
 // ─── Layer ───────────────────────────────────────────────────────────────────
@@ -334,6 +356,9 @@ class SnowLayer {
   private width = 0;
   private height = 0;
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
+  private frostTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Whether the frost has been drawn at all; the first draw is never deferred. */
+  private frostDrawn = false;
   /** True from show() until the fade-out after hide() has finished. */
   rendering = false;
 
@@ -389,8 +414,13 @@ class SnowLayer {
       if (flake.y > this.height) flake.y = Math.random() * this.height;
     }
     this.populate();
-    this.redrawFrost();
-    if (this.rendering) this.updateTextRegion();
+    this.scheduleFrostRedraw();
+    if (this.rendering) {
+      this.updateTextRegion();
+      // Resizing a canvas clears it, and this runs after the frame's drawing: draw
+      // again now, or the snow blinks out for a frame.
+      this.render(0, music.speed);
+    }
   }
 
   private makeFlake(randomY: boolean): Flake {
@@ -419,9 +449,23 @@ class SnowLayer {
   }
 
   redrawFrost() {
+    if (this.frostTimer) clearTimeout(this.frostTimer);
+    this.frostTimer = null;
     const on = $snowFrost.get();
     this.frost.hidden = !on;
-    if (on) drawFrost(this.frost, this.width, this.height);
+    if (!on) return;
+    drawFrost(this.frost, this.width, this.height);
+    this.frostDrawn = true;
+  }
+
+  /** Redraw the frost after a resize: at once the first time, otherwise once resizing stops. */
+  private scheduleFrostRedraw() {
+    if (!this.frostDrawn) {
+      this.redrawFrost();
+      return;
+    }
+    if (this.frostTimer) clearTimeout(this.frostTimer);
+    this.frostTimer = setTimeout(() => this.redrawFrost(), FROST_REDRAW_DELAY_MS);
   }
 
   /** Point the flakes' mask in ChristmasSnow.css at the lyrics' extent, or lift it. */
@@ -430,21 +474,30 @@ class SnowLayer {
     let start = Infinity;
     let end = -Infinity;
     let sampled = 0;
+    // Across the page, a line's box spans the whole lyrics column however short its
+    // text, so measure the text itself: masking the full column empties that side.
+    const range = horizontal ? this.host.ownerDocument.createRange() : null;
     for (const element of this.textRegion.elements(this.host)) {
       if (sampled++ >= TEXT_REGION_SAMPLE_LINES) break;
-      const rect = element.getBoundingClientRect();
+      range?.selectNodeContents(element);
+      const rect = range ? range.getBoundingClientRect() : element.getBoundingClientRect();
       if (rect.width === 0) continue;
       start = Math.min(start, horizontal ? rect.left : rect.top);
       end = Math.max(end, horizontal ? rect.right : rect.bottom);
     }
     const hasText = start < end;
+    const hadText = this.el.classList.contains("AvoidText");
     this.el.classList.toggle("AvoidText", hasText);
     this.el.classList.toggle("AvoidTextY", hasText && !horizontal);
     if (!hasText) return;
     const hostRect = this.host.getBoundingClientRect();
     const origin = horizontal ? hostRect.left : hostRect.top;
+    // Text that just appeared fades in where it is: only the strength transitions,
+    // so the dimmed band doesn't also sweep across from where the last text was.
+    if (!hadText) this.flakesCanvas.style.transition = "--SnowTextStrength 1s ease";
     this.flakesCanvas.style.setProperty("--SnowTextStart", `${Math.round(start - origin)}px`);
     this.flakesCanvas.style.setProperty("--SnowTextEnd", `${Math.round(end - origin)}px`);
+    if (!hadText) requestAnimationFrame(() => requestAnimationFrame(() => (this.flakesCanvas.style.transition = "")));
   }
 
   render(dt: number, speed: number) {
@@ -457,15 +510,16 @@ class SnowLayer {
       // Near flakes catch more of the wind, which reads as depth.
       flake.x += music.wind * (0.4 + 0.6 * flake.depth) * dt;
       flake.swayPhase += flake.swaySpeed * speed * dt;
-      if (flake.y - flake.radius > height) {
-        Object.assign(flake, this.makeFlake(false));
-        flake.y = -flake.radius;
-      }
       // Wrap sideways so a steady wind doesn't empty one edge.
       const margin = flake.radius + flake.swayAmount;
       if (flake.x < -margin) flake.x += width + margin * 2;
       else if (flake.x > width + margin) flake.x -= width + margin * 2;
       const x = flake.x + Math.sin(flake.swayPhase) * flake.swayAmount;
+      if (flake.y - flake.radius > height) {
+        Object.assign(flake, this.makeFlake(false));
+        flake.y = -flake.radius;
+        continue;
+      }
       const size = flake.radius * 2;
       ctx.globalAlpha = flake.opacity;
       ctx.drawImage(this.sprite, x - flake.radius, flake.y - flake.radius, size, size);
@@ -501,6 +555,8 @@ class SnowLayer {
   destroy() {
     if (this.hideTimer) clearTimeout(this.hideTimer);
     this.hideTimer = null;
+    if (this.frostTimer) clearTimeout(this.frostTimer);
+    this.frostTimer = null;
     this.rendering = false;
     this.backgroundObserver.disconnect();
     this.resizeObserver.disconnect();
@@ -527,10 +583,10 @@ let npvLayer: SnowLayer | null = null;
 
 const layers = () => [pageLayer, npvLayer].filter((l): l is SnowLayer => l !== null);
 
-/** The lyrics page's content box, when it has an animated background of its own to snow on. */
+/** The lyrics page's content box, when it has an animated background to snow on or Always Show Snow is on. */
 function pageHost(): HTMLElement | null {
   if (!PageContainer || PageContainer.classList.contains("CardMode")) return null;
-  if (getBackgroundStyle() !== "dynamic") return null;
+  if (getBackgroundStyle() !== "dynamic" && !$snowAlways.get()) return null;
   return PageContainer.querySelector<HTMLElement>(".ContentBox");
 }
 
@@ -562,7 +618,7 @@ function syncLayer(current: SnowLayer | null, host: HTMLElement | null, on: bool
 
 /** Show, hide or tear down the snow on every host to match the track and settings. */
 export function UpdateChristmasSnow() {
-  const on = isSnowTime() && !reducedMotion.matches;
+  const on = isSnowTime() && (!reducedMotion.matches || $snowAlways.get());
   snowing = on;
   if (on) loadAnalysis();
   pageLayer = syncLayer(pageLayer, pageHost(), on, PAGE_TEXT);
@@ -631,6 +687,7 @@ Global.Event.listen("fullscreen:exit", UpdateChristmasSnow);
 $backgroundStyle.listen(UpdateChristmasSnow);
 $showNpvDynamicBg.listen(UpdateChristmasSnow);
 $snowWhen.listen(UpdateChristmasSnow);
+$snowAlways.listen(UpdateChristmasSnow);
 $snowAmount.listen(() => {
   for (const layer of layers()) layer.populate();
 });

@@ -14,6 +14,14 @@
   initial-value: 0px;
 }
 
+/* Registered so the snow behind the lyrics dims gradually when they load, rather
+   than snapping from full brightness. */
+@property --SnowTextStrength {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: #000;
+}
+
 .SpicySnow {
   position: absolute;
   inset: 0;
@@ -41,21 +49,19 @@ aside.spicy-dynamic-bg-in-this > .SpicySnow {
   width: 100%;
   height: 100%;
 }
-
 .SpicySnow > .SnowFlakes {
   --SnowTextFeather: 80px;
-  /* What's left of the snow behind the text. */
-  --SnowTextStrength: rgba(0, 0, 0, 0.12);
+  /* Without text the mask is opaque throughout; see .AvoidText. */
+  --SnowTextStrength: #000;
   --SnowTextAxis: to right;
   transition:
     --SnowTextStart 0.6s ease,
-    --SnowTextEnd 0.6s ease;
-}
-
-/* The dimmed lyric lines are translucent: without this, flakes show through the
-   letters. The frost is left alone; it hugs the edges, where the lyrics fade out.
-   The page fades across the lyrics column, the NPV across the lyrics card's band. */
-.SpicySnow.AvoidText > .SnowFlakes {
+    --SnowTextEnd 0.6s ease,
+    --SnowTextStrength 1s ease;
+  /* The dimmed lyric lines are translucent: without this, flakes show through the
+     letters. The frost is left alone; it hugs the edges, where the lyrics fade out.
+     The page fades across the lyrics column, the NPV across the lyrics card's band.
+     Always applied, so a change in strength can transition. */
   mask-image: linear-gradient(
     var(--SnowTextAxis),
     #000 calc(var(--SnowTextStart) - var(--SnowTextFeather)),
@@ -63,6 +69,11 @@ aside.spicy-dynamic-bg-in-this > .SpicySnow {
     var(--SnowTextStrength) var(--SnowTextEnd),
     #000 calc(var(--SnowTextEnd) + var(--SnowTextFeather))
   );
+}
+
+.SpicySnow.AvoidText > .SnowFlakes {
+  /* What's left of the snow behind the text. */
+  --SnowTextStrength: rgba(0, 0, 0, 0.3);
 }
 
 .SpicySnow.AvoidTextY > .SnowFlakes {
