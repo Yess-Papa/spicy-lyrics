@@ -6,6 +6,7 @@ import About, { useUpdateStatus } from "./About.tsx";
 import { advancedSection } from "./AdvancedSection.tsx";
 import { appearanceSection } from "./AppearanceSection.tsx";
 import { backgroundSection } from "./BackgroundSection.tsx";
+import { BugReportPane, bugReportSection } from "./BugReportSection.tsx";
 import { Highlight, PeekContext, Row, SearchBar } from "./components.tsx";
 import { experimentsSection } from "./ExperimentsSection.tsx";
 import { AboutIcon, ChevronIcon, CloseIcon, PeekIcon } from "./icons.tsx";
@@ -36,6 +37,7 @@ const SECTIONS: SectionDef[] = [
   appearanceSection,
   experimentsSection,
   advancedSection,
+  bugReportSection,
   aboutSection,
 ];
 
@@ -376,6 +378,8 @@ export default function SettingsPanel() {
               )
             ) : section.id === "about" ? (
               <About status={updateStatus} />
+            ) : section.id === "bug" ? (
+              <BugReportPane />
             ) : (
               <>
                 {section.intro && <p className="sl-sp-intro">{section.intro}</p>}

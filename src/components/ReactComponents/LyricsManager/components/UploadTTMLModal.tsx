@@ -9,6 +9,9 @@ import { ProcessLyrics } from "../../../../utils/Lyrics/ProcessLyrics";
 import { $currentLyricsData, $ttmlUploadMode } from "../../../../utils/stores";
 import { LocalLyricsManager } from "../../../../utils/Lyrics/manager";
 import { ArrowLeftIcon, ClockIcon, DatabaseIcon, SpinnerIcon, UploadIcon } from "./Icons";
+import Logger from "../../../../utils/Logger.ts";
+
+const uploadLogger = new Logger("TTML Upload");
 
 type UploadMode = "persistent" | "temporary";
 
@@ -105,14 +108,14 @@ export default function UploadTTMLModal({ onBack, onDone }: UploadTTMLModalProps
                 })
                 .catch((err) => {
                   toast.error("Error applying lyrics", { duration: 5000 });
-                  console.error("Error applying lyrics:", err);
+                  uploadLogger.error("Error applying lyrics", err);
                 });
             }, 25);
             onDone("temporary");
           }
         } catch (err) {
           toast.error("Upload failed.", { duration: 5000 });
-          console.error("TTML upload error:", err);
+          uploadLogger.error("TTML upload error", err);
           setUploading(false);
         }
       };

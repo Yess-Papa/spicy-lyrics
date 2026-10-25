@@ -57,6 +57,9 @@ function migrateSettingsKeys(blob: Record<string, any>): Record<string, any> {
 
 const _settings: Record<string, any> = migrateSettingsKeys(readSettingsBlob());
 
+/** Every persisted atom and its default, so the bug report can list what someone changed. */
+export const PersistedSettings = new Map<string, { get: () => unknown; defaultValue: unknown }>();
+
 /**
  * An atom backed by the settings blob. Exported so feature modules (e.g.
  * `experiments.ts`) can register their own persisted settings without having to
@@ -68,6 +71,7 @@ export function persistAtom<T>(key: string, defaultValue: T) {
     _settings[key] = v;
     saveSettingsBlob(_settings);
   });
+  PersistedSettings.set(key, { get: () => store.get(), defaultValue });
   return store;
 }
 
@@ -116,6 +120,7 @@ export const $popupLyricsAllowed = (() => {
     _settings["popupLyricsAllowed"] = v;
     saveSettingsBlob(_settings);
   });
+  PersistedSettings.set("popupLyricsAllowed", { get: () => store.get(), defaultValue: true });
   return store;
 })();
 export const $viewControlsPosition = persistAtom<string>("viewControlsPosition", "Top");
