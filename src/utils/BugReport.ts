@@ -18,7 +18,7 @@ import {
   $showNpvDynamicBg,
   PersistedSettings,
 } from "./stores.ts";
-import { $npvLyricsExpanded, $npvLyricsOpen } from "./uiState.ts";
+import { $npvLyricsExpanded, $npvLyricsOpen, $romanization } from "./uiState.ts";
 
 /**
  * The setup report users paste into Discord when something goes wrong: from the
@@ -171,6 +171,8 @@ function describeLyrics(uri: string | undefined): string | undefined {
     if (answeredFrom) {
       parts.push(answeredFrom === "already loaded" ? "already loaded" : `loaded from ${answeredFrom === "API" ? "server" : answeredFrom}`);
     }
+    // Kept in the UI state, not the settings blob, so the Settings row never shows it.
+    if ($romanization.get()) parts.push("romanisation on");
     return parts.filter(Boolean).join(", ");
   } catch {
     return undefined;
@@ -304,7 +306,12 @@ function versionRow(latest: string | undefined): string | undefined {
   const current = Session.SpicyLyrics.GetCurrentVersion()?.Text;
   if (!current) return undefined;
   const build = App.isDev() ? "dev build" : undefined;
-  const behind = latest && latest !== current ? `update available: ${latest}` : latest ? "latest" : undefined;
+  // In order, so a build newer than the public one (a test build) isn't told to update.
+  const behind = latest
+    ? Session.SpicyLyrics.IsBehind(Session.SpicyLyrics.GetCurrentVersion(), Session.SpicyLyrics.ParseVersion(latest))
+      ? `update available: ${latest}`
+      : "latest"
+    : undefined;
   const extra = [build, behind].filter(Boolean).join(", ");
   return extra ? `${current} (${extra})` : current;
 }
